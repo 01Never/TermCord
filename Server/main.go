@@ -2,11 +2,19 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 )
 
 func helloWorldhandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello, World! One day I will replace Discord!!")
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "failed to read body", http.StatusBadRequest)
+		return
+	}
+	fmt.Println(string(body))
 }
 
 func aboutHandler(w http.ResponseWriter, r *http.Request) {
