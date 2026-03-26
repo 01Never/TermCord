@@ -1,0 +1,187 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+)
+
+// ── STYLES ────────────────────────────────────────────────────────────────────
+
+var (
+	channelStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")).
+			Padding(0, 1)
+
+	activeChannelStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("255")).
+				Bold(true).
+				Padding(0, 1)
+
+	categoryStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("238")).
+			Bold(true).
+			Padding(0, 1)
+
+	titleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("255")).
+			Bold(true).
+			Padding(0, 1).
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderBottom(true).
+			BorderForeground(lipgloss.Color("240"))
+
+	sidebarBorderStyle = lipgloss.NewStyle().
+				BorderStyle(lipgloss.NormalBorder()).
+				BorderRight(true).
+				BorderForeground(lipgloss.Color("240"))
+)
+
+// ── DATA ──────────────────────────────────────────────────────────────────────
+
+type Channel struct {
+	Name     string
+	Category string
+}
+
+// ── MODEL ─────────────────────────────────────────────────────────────────────
+
+type model struct {
+	width         int
+	height        int
+	channels      []Channel
+	activeChannel int
+}
+
+func newModel() model {
+	return model{
+		channels: []Channel{
+			{Name: "general", Category: "TEXT CHANNELS"},
+			{Name: "random", Category: "TEXT CHANNELS"},
+			{Name: "off-topic", Category: "TEXT CHANNELS"},
+			{Name: "announcements", Category: "ANNOUNCEMENTS"},
+			{Name: "introductions", Category: "ANNOUNCEMENTS"},
+		},
+	}
+}
+
+func (m model) Init() tea.Cmd { return nil }
+
+// ── UPDATE ────────────────────────────────────────────────────────────────────
+// v2: KeyPressMsg replaces KeyMsg.
+// v2: msg.String() still works — returns "up", "down", "ctrl+c", "q" etc.
+//     This is simpler than comparing msg.Code runes directly.
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "q", "ctrl+c":
+			return m, tea.Quit
+		case "up", "k":
+			if m.activeChannel > 0 {
+				m.activeChannel--
+			}
+		case "down", "j":
+			if m.activeChannel < len(m.channels)-1 {
+				m.activeChannel++
+			}
+		}
+	}
+	return m, nil
+}
+
+// ── VIEW ──────────────────────────────────────────────────────────────────────
+// v2 CHANGE: View() now returns tea.View, not string.
+//
+// tea.NewView(content) wraps your string content.
+// You then set fields on the view struct to declare terminal features:
+//   v.AltScreen = true          → full screen mode (replaces tea.WithAltScreen())
+//   v.MouseMode = tea.MouseModeCellMotion → enables mouse (replaces tea.WithMouseCellMotion())
+//   v.WindowTitle = "TermCord"  → sets the terminal window title (new in v2!)
+//
+// This is the "declarative" approach — instead of scattering options across
+// NewProgram, Init, and Update, you just say what you want in View each frame.
+
+func (m model) View() tea.View {
+	var content string
+	if m.width == 0 {
+		content = ""
+	} else {
+		content = lipgloss.JoinHorizontal(lipgloss.Top,
+			m.renderSidebar(),
+			m.renderMain(),
+		)
+	}
+
+	v := tea.NewView(content)
+	v.AltScreen = true         // full screen — declared here instead of NewProgram
+	v.WindowTitle = "TermCord" // sets your terminal tab title!
+	return v
+}
+
+func (m model) renderSidebar() string {
+	const sidebarW = 22
+	var b strings.Builder
+
+	b.WriteString(titleStyle.Width(sidebarW).Render("⚡ TermCord") + "\n")
+	usedLines := 2
+
+	currentCategory := ""
+	for i, ch := range m.channels {
+		if ch.Category != currentCategory {
+			currentCategory = ch.Category
+			b.WriteString(categoryStyle.Width(sidebarW).Render(ch.Category) + "\n")
+			usedLines++
+		}
+		label := "# " + ch.Name
+		if i == m.activeChannel {
+			b.WriteString(activeChannelStyle.Width(sidebarW).Render(label) + "\n")
+		} else {
+			b.WriteString(channelStyle.Width(sidebarW).Render(label) + "\n")
+		}
+		usedLines++
+	}
+
+	for i := 0; i < m.height-usedLines; i++ {
+		b.WriteString(strings.Repeat(" ", sidebarW) + "\n")
+	}
+
+	return sidebarBorderStyle.Render(b.String())
+}
+
+func (m model) renderMain() string {
+	const sidebarW = 22
+	mainW := m.width - sidebarW - 1
+	ch := m.channels[m.activeChannel]
+
+	title := titleStyle.Width(mainW).Render("# " + ch.Name)
+	content := lipgloss.NewStyle().
+		Width(mainW).
+		Height(m.height - 2).
+		Render(fmt.Sprintf(
+			"You are in #%s\n\nUse ↑↓ or j/k to switch channels.\nPress q to quit.",
+			ch.Name,
+		))
+
+	return title + "\n" + content
+}
+
+// ── MAIN ──────────────────────────────────────────────────────────────────────
+// v2: NewProgram is simpler — no options needed for altscreen/mouse.
+// Those are now declared in View() instead.
+
+func main() {
+	p := tea.NewProgram(newModel())
+	if _, err := p.Run(); err != nil {
+		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
+}
