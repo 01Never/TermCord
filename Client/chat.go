@@ -49,3 +49,8 @@ func init_chat() chat_model {
 		err:         nil,
 	}
 }
+
+func (m model) renderChat() string {
+	viewportView := m.chat.viewport.View()
+	return viewportView + "\n" + m.chat.textarea.View()
+}

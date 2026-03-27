@@ -28,5 +28,5 @@ func handler(s string) {
 }
 
 func (m model) View() tea.View {
-	return m.render_chat_room()
+	return m.renderChatRoom()
 }

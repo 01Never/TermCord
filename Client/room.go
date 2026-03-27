@@ -64,19 +64,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) render_chat_room() tea.View {
-	viewportView := m.chat.viewport.View()
-	var content string
-	content = lipgloss.JoinHorizontal(lipgloss.Top,
-		m.renderSidebar(),
-		(viewportView + "\n" + m.chat.textarea.View()),
-	)
+func (m model) renderChatRoom() tea.View {
+	sidebarView := m.renderSidebar()
+	chatView := m.renderChat()
+
+	content := lipgloss.JoinHorizontal(lipgloss.Top, sidebarView, chatView)
 
 	v := tea.NewView(content)
 	c := m.chat.textarea.Cursor()
 	if c != nil {
-		c.Y += lipgloss.Height(viewportView)
-		c.X += lipgloss.Width(m.renderSidebar())
+		c.Y += lipgloss.Height(m.chat.viewport.View())
+		c.X += lipgloss.Width(sidebarView)
 	}
 	v.Cursor = c
 	v.AltScreen = true
