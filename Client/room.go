@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"charm.land/bubbles/v2/cursor"
@@ -12,45 +11,30 @@ import (
 	"github.com/coder/websocket"
 )
 
+var lastmsg string
+
+type serverMsg string
+
 type model struct {
 	chat chat_model
-	conn *websocket.Conn
-	ctx  context.Context
 }
 
 func initialModel() model {
-	ctx := context.Background()
-	conn, _, err := websocket.Dial(ctx, "ws://localhost:8080/subscribe", nil)
-	if err != nil {
-		log.Fatalf("failed to connect to server: %v", err)
-	}
-
-	m := model{
-		chat: init_chat(),
-		conn: conn,
-		ctx:  ctx,
-	}
-
-	go listenForMessages(m)
-
-	return m
+	return model{
+		chat: init_chat()}
 }
 
-func listenForMessages(m model) {
+func listenForMessages(p *tea.Program, conn *websocket.Conn, ctx context.Context) {
 	for {
-		_, data, err := m.conn.Read(m.ctx)
+		_, data, err := conn.Read(ctx)
 		if err != nil {
 			fmt.Printf("Something went wrong while cooking")
 			return
 		}
-		//TODO this dosent work because model is passed by value.
-		//aside from that we bubble.tea owns and should own this the model. we need to
-		//pass it an update and it should decided what to do. simalr to a keystrokes
 
-		// TEST fmt.Println(string(data) + "\n")
+		//TODO data needs to include userID. to avoid printing my own message
+		p.Send(serverMsg(string(data))) //this converting data to string then to serverMsg. so bubble.tea understands what this is for the case statments
 
-		// m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render("Server: ")+string(data))
-		// m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
 	}
 }
 
@@ -75,10 +59,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			//TODO here to place user name from server.
 			//TODO here to send message to server
-			handler(m.chat.senderStyle.Render("You: ") + m.chat.textarea.Value())
+			handler(m.chat.textarea.Value())
+			lastmsg = string(m.chat.textarea.Value())
 
 			//TODO here we need to get the updated message
-			m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render("You: ")+m.chat.textarea.Value())
+			m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render("ME: ")+m.chat.textarea.Value())
 			m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
 			m.chat.textarea.Reset()
 			m.chat.viewport.GotoBottom()
@@ -89,6 +74,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.chat.textarea, cmd = m.chat.textarea.Update(msg)
 			return m, cmd
 		}
+	case serverMsg:
+		m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render("Server: ")+string(msg))
+		m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
+		return m, nil
 
 	case cursor.BlinkMsg:
 		// Textarea should also process cursor blinks.
