@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/viewport"
 	"charm.land/lipgloss/v2"
@@ -50,7 +52,12 @@ func init_chat() chat_model {
 	}
 }
 
+func (m model) chatViewportPanel() string {
+	return titleStyle.Width(m.chat.viewport.Width()).Render("#general") + "\n" + m.chat.viewport.View()
+}
+
 func (m model) renderChat() string {
-	viewportView := m.chat.viewport.View()
-	return viewportView + "\n" + m.chat.textarea.View()
+	var b strings.Builder
+	b.WriteString(m.chatViewportPanel() + "\n" + m.chat.textarea.View())
+	return b.String()
 }

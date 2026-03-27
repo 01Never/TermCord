@@ -1,15 +1,21 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/coder/websocket"
 )
 
 func main() {
+
+	ctx := context.Background()
+	websocket.Dial(ctx, "ws://localhost:8080/subscribe", nil)
+
 	p := tea.NewProgram(initialModel())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Oof: %v\n", err)
@@ -18,9 +24,9 @@ func main() {
 
 func handler(s string) {
 	body := strings.NewReader(s)
-	resp, err := http.Post("http://localhost:8080/helloWorld", "text/plain", body)
+	resp, err := http.Post("http://localhost:8080/publish", "text/plain", body)
 	if err != nil {
-		panic(err)
+		//panic(err)
 		// this should not crash the program
 	}
 	defer resp.Body.Close()

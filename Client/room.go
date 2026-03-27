@@ -23,9 +23,10 @@ func initialModel() model {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		// this should go under chat.go
 		m.chat.viewport.SetWidth(msg.Width)
 		m.chat.textarea.SetWidth(msg.Width)
-		m.chat.viewport.SetHeight(msg.Height - m.chat.textarea.Height())
+		m.chat.viewport.SetHeight(msg.Height - m.chat.textarea.Height() - 2) // todo this 2 accounts for the header. this can be done better
 
 		if len(m.chat.messages) > 0 {
 			// Wrap content before setting it.
@@ -73,7 +74,7 @@ func (m model) renderChatRoom() tea.View {
 	v := tea.NewView(content)
 	c := m.chat.textarea.Cursor()
 	if c != nil {
-		c.Y += lipgloss.Height(m.chat.viewport.View())
+		c.Y += lipgloss.Height(m.chatViewportPanel())
 		c.X += lipgloss.Width(sidebarView)
 	}
 	v.Cursor = c
