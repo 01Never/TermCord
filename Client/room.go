@@ -1,22 +1,56 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"charm.land/bubbles/v2/cursor"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/coder/websocket"
 )
 
 type model struct {
 	chat chat_model
+	conn *websocket.Conn
+	ctx  context.Context
 }
 
 func initialModel() model {
+	ctx := context.Background()
+	conn, _, err := websocket.Dial(ctx, "ws://localhost:8080/subscribe", nil)
+	if err != nil {
+		log.Fatalf("failed to connect to server: %v", err)
+	}
 
-	return model{
+	m := model{
 		chat: init_chat(),
+		conn: conn,
+		ctx:  ctx,
+	}
+
+	go listenForMessages(m)
+
+	return m
+}
+
+func listenForMessages(m model) {
+	for {
+		_, data, err := m.conn.Read(m.ctx)
+		if err != nil {
+			fmt.Printf("Something went wrong while cooking")
+			return
+		}
+		//TODO this dosent work because model is passed by value.
+		//aside from that we bubble.tea owns and should own this the model. we need to
+		//pass it an update and it should decided what to do. simalr to a keystrokes
+
+		// TEST fmt.Println(string(data) + "\n")
+
+		// m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render("Server: ")+string(data))
+		// m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
 	}
 }
 
@@ -43,6 +77,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			//TODO here to send message to server
 			handler(m.chat.senderStyle.Render("You: ") + m.chat.textarea.Value())
 
+			//TODO here we need to get the updated message
 			m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render("You: ")+m.chat.textarea.Value())
 			m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
 			m.chat.textarea.Reset()

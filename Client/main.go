@@ -1,20 +1,18 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/coder/websocket"
 )
 
 func main() {
 
-	ctx := context.Background()
-	websocket.Dial(ctx, "ws://localhost:8080/subscribe", nil)
+	// ctx := context.Background()
+	// conn, _, err := websocket.Dial(ctx, "ws://localhost:8080/subscribe", nil)
 
 	p := tea.NewProgram(initialModel())
 	if _, err := p.Run(); err != nil {
