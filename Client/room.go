@@ -11,17 +11,19 @@ import (
 	"github.com/coder/websocket"
 )
 
-var lastmsg string
+//var lastmsg string
 
 type serverMsg string
 
 type model struct {
-	chat chat_model
+	chat    chat_model
+	session string
 }
 
 func initialModel() model {
 	return model{
-		chat: init_chat()}
+		chat:    init_chat(),
+		session: "room"}
 }
 
 func listenForMessages(p *tea.Program, conn *websocket.Conn, ctx context.Context) {
@@ -38,7 +40,7 @@ func listenForMessages(p *tea.Program, conn *websocket.Conn, ctx context.Context
 	}
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		// this should go under chat.go
@@ -58,15 +60,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "enter":
 			//TODO here to place user name from server.
-			//TODO here to send message to server
 			handler(m.chat.textarea.Value())
-			lastmsg = string(m.chat.textarea.Value())
+			//lastmsg = string(m.chat.textarea.Value())
 
-			//TODO here we need to get the updated message
-			m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render("ME: ")+m.chat.textarea.Value())
-			m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
-			m.chat.textarea.Reset()
-			m.chat.viewport.GotoBottom()
+			//TODO instead of updating the message locally just send to the server and when we get the messgae back we prit
+			//avoiding the need for json messages yet.
+
+			// m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render("ME: ")+m.chat.textarea.Value())
+			// m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
+			// m.chat.textarea.Reset()
+			// m.chat.viewport.GotoBottom()
 			return m, nil
 		default:
 			// Send all other keypresses to the textarea.
@@ -75,8 +78,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case serverMsg:
-		m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render("Server: ")+string(msg))
+		m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render("ME: ")+string(msg))
 		m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
+		m.chat.textarea.Reset()
+		m.chat.viewport.GotoBottom()
 		return m, nil
 
 	case cursor.BlinkMsg:

@@ -28,6 +28,16 @@ func main() {
 	}
 }
 
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch m.session {
+	case "room":
+		return m.roomUpdate(msg)
+
+	}
+
+	return m, nil
+}
+
 func handler(s string) {
 	body := strings.NewReader(s)
 	resp, err := http.Post("http://localhost:8080/publish", "text/plain", body)
