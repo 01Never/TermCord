@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -11,9 +12,11 @@ import (
 	"github.com/coder/websocket"
 )
 
-//var lastmsg string
-
-type serverMsg string
+type serverMsg struct {
+	UserID    string `json:"user_id"`
+	Context   string `json:"content"`
+	Timestamp int64  `json:"timestamp"`
+}
 
 type model struct {
 	chat    chat_model
@@ -34,8 +37,14 @@ func listenForMessages(p *tea.Program, conn *websocket.Conn, ctx context.Context
 			return
 		}
 
+		var msg serverMsg
+		err = json.Unmarshal(data, &msg)
+		if err != nil {
+			fmt.Printf("JSON is not feeling okay")
+		}
+
 		//TODO data needs to include userID. to avoid printing my own message
-		p.Send(serverMsg(string(data))) //this converting data to string then to serverMsg. so bubble.tea understands what this is for the case statments
+		p.Send(msg) //this converting data to string then to serverMsg. so bubble.tea understands what this is for the case statments
 
 	}
 }
@@ -59,17 +68,15 @@ func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fmt.Println(m.chat.textarea.Value())
 			return m, tea.Quit
 		case "enter":
-			//TODO here to place user name from server.
-			handler(m.chat.textarea.Value())
-			//lastmsg = string(m.chat.textarea.Value())
 
-			//TODO instead of updating the message locally just send to the server and when we get the messgae back we prit
-			//avoiding the need for json messages yet.
+			// convert data to json and insert user name
+			msg := serverMsg{UserID: user, Context: string(m.chat.textarea.Value()), Timestamp: 0}
+			bytes, err := json.Marshal(msg)
+			if err != nil {
+				fmt.Printf("JSON is not feeling okay")
+			}
+			handler(bytes)
 
-			// m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render("ME: ")+m.chat.textarea.Value())
-			// m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
-			// m.chat.textarea.Reset()
-			// m.chat.viewport.GotoBottom()
 			return m, nil
 		default:
 			// Send all other keypresses to the textarea.
@@ -78,7 +85,7 @@ func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case serverMsg:
-		m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render("ME: ")+string(msg))
+		m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render(msg.UserID+":")+msg.Context)
 		m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
 		m.chat.textarea.Reset()
 		m.chat.viewport.GotoBottom()

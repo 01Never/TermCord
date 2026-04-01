@@ -1,16 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
-	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/coder/websocket"
 )
+
+var user string = fmt.Sprintf("USER_%03d", rand.Intn(1000))
 
 func main() {
 
@@ -38,9 +41,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func handler(s string) {
-	body := strings.NewReader(s)
-	resp, err := http.Post("http://localhost:8080/publish", "text/plain", body)
+func handler(b []byte) {
+	body := bytes.NewReader(b)
+	resp, err := http.Post("http://localhost:8080/publish", "application/json", body)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Oof: %v\n", err)
 	}
