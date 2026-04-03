@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,29 +16,28 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func helloWorldhandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, World! One day I will replace Discord!!")
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "failed to read body", http.StatusBadRequest)
-		return
-	}
-	fmt.Println(string(body))
+type Packet struct {
+	Type string          `json:"type"`
+	Data json.RawMessage `json:"data"`
 }
 
-func aboutHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case "GET":
-		fmt.Fprintf(w, "TermCord is a fully terminal-based communication platform designed for speed, simplicity, privacy and control.")
-	case "POST":
-		fmt.Fprintf(w, "Brewing some coffe...and a great terminal-based chat!")
-	}
+type serverMsg struct {
+	UserID    string `json:"user_id"`
+	Context   string `json:"content"`
+	Timestamp int64  `json:"timestamp"`
 }
+
+type heartBeat struct {
+	HeartBeat string `json:"heartBeat"`
+}
+
+var users []string
+
+// type usersOnline struct {
+// 	Users users `json:"online_users"`
+// }
 
 func main() {
-	//	http.HandleFunc("/helloWorld", helloWorldhandler)
-	//	http.HandleFunc("/about", aboutHandler)
 	termcord := newChatServer()
 	http.ListenAndServe(":8080", termcord)
 	fmt.Print("Brewing some coffe...and a great terminal-based chat!")
@@ -86,6 +86,7 @@ func newChatServer() *chatServer {
 // cannot keep up with the messages, closeSlow is called.
 type subscriber struct {
 	msgs      chan []byte
+	heartbeat chan []byte
 	closeSlow func()
 }
 
@@ -118,6 +119,14 @@ func (cs *chatServer) publishHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body := http.MaxBytesReader(w, r.Body, 8192)
+	// username := r.URL.Query().Get("username")
+	// users = append(users, username)
+
+	// online_users := usersOnline{Users: users}
+	// bytes, _ := json.Marshal(online_users)
+
+	// packet := Packet{Type: "online_users", Data: bytes}
+
 	msg, err := io.ReadAll(body)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusRequestEntityTooLarge), http.StatusRequestEntityTooLarge)
@@ -169,8 +178,35 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 	mu.Unlock()
 	defer c.CloseNow()
 
-	ctx := c.CloseRead(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
+	// Read loop in a separate goroutine
+	go func() {
+		defer cancel()
+		for {
+			_, msg, err := c.Read(ctx)
+			if err != nil {
+				return
+			}
+
+			var packet Packet
+			json.Unmarshal(msg, &packet)
+
+			switch packet.Type {
+			case "msg":
+				cs.publish(packet.Data)
+
+			case "heartbeat":
+				var hb heartBeat
+				json.Unmarshal(packet.Data, &hb)
+				log.Printf("heartbeat: %s", hb)
+
+			}
+		}
+	}()
+
+	// Write loop stays the same
 	for {
 		select {
 		case msg := <-s.msgs:
@@ -178,10 +214,27 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 			if err != nil {
 				return err
 			}
+		case heartbeat := <-s.heartbeat:
+			err := writeTimeout(ctx, time.Second*5, c, heartbeat)
+			if err != nil {
+				return err
+			}
 		case <-ctx.Done():
 			return ctx.Err()
 		}
 	}
+
+	// for {
+	// 	select {
+	// 	case msg := <-s.msgs:
+	// 		err := writeTimeout(ctx, time.Second*5, c, msg)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	case <-ctx.Done():
+	// 		return ctx.Err()
+	// 	}
+	// }
 }
 
 // publish publishes the msg to all subscribers.

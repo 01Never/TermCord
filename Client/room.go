@@ -5,12 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/cursor"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 )
+
+type Packet struct {
+	Type string          `json:"type"`
+	Data json.RawMessage `json:"data"`
+}
 
 type serverMsg struct {
 	UserID    string `json:"user_id"`
@@ -18,15 +25,44 @@ type serverMsg struct {
 	Timestamp int64  `json:"timestamp"`
 }
 
+type heartBeat struct {
+	HeartBeat string `json:"heartBeat"`
+}
+
 type model struct {
 	chat    chat_model
 	session string
+	users   []string
+	conn    *websocket.Conn
+	ctx     context.Context
 }
 
-func initialModel() model {
+func initialModel(conn *websocket.Conn, ctx context.Context) model {
 	return model{
 		chat:    init_chat(),
-		session: "room"}
+		session: "room",
+		conn:    conn,
+		ctx:     ctx}
+}
+
+// TODO MC periodic stuff for server. Maybe this should go in function that starts
+// periodic stuff for the server in general. inside  spilt be sever, client, background etc
+func sendServer(conn *websocket.Conn, ctx context.Context) {
+	go func() {
+		for range time.Tick(10000 * time.Millisecond) {
+			data := heartBeat{HeartBeat: "heartbeat: " + user}
+			bytes, err := json.Marshal(data)
+			if err != nil {
+				fmt.Printf("building heartbeat msg error")
+			}
+
+			packet := Packet{Type: "heartbeat", Data: bytes}
+			err = wsjson.Write(ctx, conn, packet)
+			if err != nil {
+				fmt.Printf("sending heartbeat error")
+			}
+		}
+	}()
 }
 
 func listenForMessages(p *tea.Program, conn *websocket.Conn, ctx context.Context) {
@@ -75,7 +111,13 @@ func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err != nil {
 				fmt.Printf("JSON is not feeling okay")
 			}
-			handler(bytes)
+			// handler(bytes)
+
+			packet := Packet{Type: "msg", Data: bytes}
+			err = wsjson.Write(m.ctx, m.conn, packet)
+			if err != nil {
+				fmt.Printf("Sending via websocket went wrong")
+			}
 
 			return m, nil
 		default:
