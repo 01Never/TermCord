@@ -18,6 +18,7 @@ var user string = fmt.Sprintf("USER_%03d", rand.Intn(1000))
 func main() {
 
 	ctx := context.Background()
+	//todo having the user name in the url not secure
 	conn, _, err := websocket.Dial(ctx, "ws://localhost:8080/subscribe?username="+user, nil)
 	if err != nil {
 		log.Fatalf("Oof: failed to connect to server: %v", err)

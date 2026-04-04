@@ -19,10 +19,11 @@ type Packet struct {
 	Data json.RawMessage `json:"data"`
 }
 
-type serverMsg struct {
-	UserID    string `json:"user_id"`
-	Context   string `json:"content"`
-	Timestamp int64  `json:"timestamp"`
+type serverMsg struct { //todo this should be "chatMsg"
+	UserID      string   `json:"user_id"`
+	Context     string   `json:"content"`
+	Timestamp   int64    `json:"timestamp"`
+	OnlineUsers []string `json:"online_users"`
 }
 
 type heartBeat struct {
@@ -76,8 +77,13 @@ func listenForMessages(p *tea.Program, conn *websocket.Conn, ctx context.Context
 		var msg serverMsg
 		err = json.Unmarshal(data, &msg)
 		if err != nil {
-			fmt.Printf("JSON is not feeling okay")
+			fmt.Printf("JSON inside a JSON!!")
 		}
+
+		// switch packet.Type {
+		// case "OnlineUsers"
+
+		// }
 
 		//TODO data needs to include userID. to avoid printing my own message
 		p.Send(msg) //this converting data to string then to serverMsg. so bubble.tea understands what this is for the case statments

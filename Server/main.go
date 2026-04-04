@@ -21,10 +21,11 @@ type Packet struct {
 	Data json.RawMessage `json:"data"`
 }
 
-type serverMsg struct {
-	UserID    string `json:"user_id"`
-	Context   string `json:"content"`
-	Timestamp int64  `json:"timestamp"`
+type serverMsg struct { //todo this should be "chatMsg"
+	UserID      string   `json:"user_id"`
+	Context     string   `json:"content"`
+	Timestamp   int64    `json:"timestamp"`
+	OnlineUsers []string `json:"online_users"`
 }
 
 type heartBeat struct {
@@ -87,6 +88,7 @@ func newChatServer() *chatServer {
 type subscriber struct {
 	msgs      chan []byte
 	heartbeat chan []byte
+	userID    string
 	closeSlow func()
 }
 
@@ -119,13 +121,6 @@ func (cs *chatServer) publishHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body := http.MaxBytesReader(w, r.Body, 8192)
-	// username := r.URL.Query().Get("username")
-	// users = append(users, username)
-
-	// online_users := usersOnline{Users: users}
-	// bytes, _ := json.Marshal(online_users)
-
-	// packet := Packet{Type: "online_users", Data: bytes}
 
 	msg, err := io.ReadAll(body)
 	if err != nil {
@@ -151,8 +146,13 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 	var mu sync.Mutex
 	var c *websocket.Conn
 	var closed bool
+	var userID string
+
+	userID = r.Header.Get("username")
+
 	s := &subscriber{
-		msgs: make(chan []byte, cs.subscriberMessageBuffer),
+		msgs:   make(chan []byte, cs.subscriberMessageBuffer),
+		userID: userID,
 		closeSlow: func() {
 			mu.Lock()
 			defer mu.Unlock()
@@ -260,6 +260,12 @@ func (cs *chatServer) addSubscriber(s *subscriber) {
 	cs.subscribersMu.Lock()
 	cs.subscribers[s] = struct{}{}
 	cs.subscribersMu.Unlock()
+
+	//todo maybe this should also have a mutex?
+	//users = append(users, s.userID)
+
+	//todo information to return to clients once we are conneceted
+
 }
 
 // deleteSubscriber deletes the given subscriber.

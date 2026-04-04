@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"math/rand"
 	"strings"
 
 	"charm.land/bubbles/v2/textarea"
@@ -13,7 +15,7 @@ type chat_model struct {
 	messages    []string
 	textarea    textarea.Model
 	senderStyle lipgloss.Style
-	channels    []Channel
+	onlineUsers []SidebarItem
 	err         error
 }
 
@@ -46,9 +48,11 @@ func init_chat() chat_model {
 		textarea:    ta,
 		messages:    []string{},
 		viewport:    vp,
-		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
-		channels:    []Channel{},
-		err:         nil,
+		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(fmt.Sprintf("%d", rand.Intn(256)))),
+		onlineUsers: []SidebarItem{
+			{Name: user, Category: "Development"},
+		},
+		err: nil,
 	}
 }
 
