@@ -63,6 +63,10 @@ func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fmt.Println(m.chat.textarea.Value())
 			return m, tea.Quit
 		case "enter":
+			if string(m.chat.textarea.Value()) == "" {
+				return m, nil
+			}
+
 			msg := shared.PostMsg{UserId: user, Msg: string(m.chat.textarea.Value())}
 			bytes, err := json.Marshal(msg)
 			if err != nil {
