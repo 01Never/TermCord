@@ -12,25 +12,11 @@ import (
 	"sync"
 	"time"
 
+	"example/TermCord/shared"
+
 	"github.com/coder/websocket"
 	"golang.org/x/time/rate"
 )
-
-type Packet struct {
-	Type string          `json:"type"`
-	Data json.RawMessage `json:"data"`
-}
-
-type serverMsg struct { //todo this should be "chatMsg"
-	UserID      string   `json:"user_id"`
-	Context     string   `json:"content"`
-	Timestamp   int64    `json:"timestamp"`
-	OnlineUsers []string `json:"online_users"`
-}
-
-type heartBeat struct {
-	HeartBeat string `json:"heartBeat"`
-}
 
 var users []string
 
@@ -190,15 +176,18 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 				return
 			}
 
-			var packet Packet
+			var packet shared.Packet
 			json.Unmarshal(msg, &packet)
 
 			switch packet.Type {
-			case "msg":
-				cs.publish(packet.Data)
+			case "PostMsg":
+				cs.publish(msg)
+				var chat shared.PostMsg
+				json.Unmarshal(packet.Data, &chat)
+				log.Printf("msg: %s", chat)
 
 			case "heartbeat":
-				var hb heartBeat
+				var hb shared.HeartBeat
 				json.Unmarshal(packet.Data, &hb)
 				log.Printf("heartbeat: %s", hb)
 

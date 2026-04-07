@@ -1,17 +1,25 @@
 package main
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
+	"example/TermCord/shared"
 	"fmt"
 	"log"
 	"math/rand"
-	"net/http"
 	"os"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/coder/websocket"
 )
+
+type model struct {
+	chat    chat_model
+	session string
+	users   []string
+	conn    *websocket.Conn
+	ctx     context.Context
+}
 
 var user string = fmt.Sprintf("USER_%03d", rand.Intn(1000))
 
@@ -38,22 +46,56 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.session {
 	case "room":
 		return m.roomUpdate(msg)
-
 	}
 
 	return m, nil
 }
 
-func handler(b []byte) {
-	body := bytes.NewReader(b)
-	resp, err := http.Post("http://localhost:8080/publish", "application/json", body)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Oof: %v\n", err)
-	}
-	defer resp.Body.Close()
-
-}
-
 func (m model) View() tea.View {
 	return m.renderChatRoom()
+}
+
+func listenForMessages(p *tea.Program, conn *websocket.Conn, ctx context.Context) {
+	for {
+		_, data, err := conn.Read(ctx)
+		if err != nil {
+			fmt.Printf("Something went wrong while cooking")
+			return
+		}
+
+		var packet shared.Packet
+		err = json.Unmarshal(data, &packet)
+		if err != nil {
+			fmt.Printf("JSON inside a JSON!!")
+		}
+
+		switch packet.Type {
+		case "PostMsg":
+			var msg shared.PostMsg
+			err = json.Unmarshal(packet.Data, &msg)
+			if err != nil {
+				fmt.Printf("Failed to unmarshal MsgPosted")
+			}
+
+			p.Send(msg)
+
+		case "UserJoined":
+			var msg shared.UserJoined
+			err = json.Unmarshal(packet.Data, &msg)
+			if err != nil {
+				fmt.Printf("Failed to unmarshal UserJoined")
+			}
+
+			p.Send(msg)
+
+		case "UserLeft":
+			var msg shared.UserLeft
+			err = json.Unmarshal(packet.Data, &msg)
+			if err != nil {
+				fmt.Printf("Failed to unmarshal UserLeft")
+			}
+
+			p.Send(msg)
+		}
+	}
 }

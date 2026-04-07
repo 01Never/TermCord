@@ -7,36 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"example/TermCord/shared"
+
 	"charm.land/bubbles/v2/cursor"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 )
-
-type Packet struct {
-	Type string          `json:"type"`
-	Data json.RawMessage `json:"data"`
-}
-
-type serverMsg struct { //todo this should be "chatMsg"
-	UserID      string   `json:"user_id"`
-	Context     string   `json:"content"`
-	Timestamp   int64    `json:"timestamp"`
-	OnlineUsers []string `json:"online_users"`
-}
-
-type heartBeat struct {
-	HeartBeat string `json:"heartBeat"`
-}
-
-type model struct {
-	chat    chat_model
-	session string
-	users   []string
-	conn    *websocket.Conn
-	ctx     context.Context
-}
 
 func initialModel(conn *websocket.Conn, ctx context.Context) model {
 	return model{
@@ -51,44 +29,19 @@ func initialModel(conn *websocket.Conn, ctx context.Context) model {
 func sendServer(conn *websocket.Conn, ctx context.Context) {
 	go func() {
 		for range time.Tick(10000 * time.Millisecond) {
-			data := heartBeat{HeartBeat: "heartbeat: " + user}
+			data := shared.HeartBeat{HeartBeat: "heartbeat: " + user}
 			bytes, err := json.Marshal(data)
 			if err != nil {
 				fmt.Printf("building heartbeat msg error")
 			}
 
-			packet := Packet{Type: "heartbeat", Data: bytes}
+			packet := shared.Packet{Type: "heartbeat", Data: bytes}
 			err = wsjson.Write(ctx, conn, packet)
 			if err != nil {
 				fmt.Printf("sending heartbeat error")
 			}
 		}
 	}()
-}
-
-func listenForMessages(p *tea.Program, conn *websocket.Conn, ctx context.Context) {
-	for {
-		_, data, err := conn.Read(ctx)
-		if err != nil {
-			fmt.Printf("Something went wrong while cooking")
-			return
-		}
-
-		var msg serverMsg
-		err = json.Unmarshal(data, &msg)
-		if err != nil {
-			fmt.Printf("JSON inside a JSON!!")
-		}
-
-		// switch packet.Type {
-		// case "OnlineUsers"
-
-		// }
-
-		//TODO data needs to include userID. to avoid printing my own message
-		p.Send(msg) //this converting data to string then to serverMsg. so bubble.tea understands what this is for the case statments
-
-	}
 }
 
 func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -110,21 +63,20 @@ func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fmt.Println(m.chat.textarea.Value())
 			return m, tea.Quit
 		case "enter":
-
-			// convert data to json and insert user name
-			msg := serverMsg{UserID: user, Context: string(m.chat.textarea.Value()), Timestamp: 0}
+			msg := shared.PostMsg{UserId: user, Msg: string(m.chat.textarea.Value())}
 			bytes, err := json.Marshal(msg)
 			if err != nil {
-				fmt.Printf("JSON is not feeling okay")
+				fmt.Printf("Failed to Marshal PostMsg")
 			}
-			// handler(bytes)
 
-			packet := Packet{Type: "msg", Data: bytes}
+			packet := shared.Packet{Type: "PostMsg", Data: bytes}
 			err = wsjson.Write(m.ctx, m.conn, packet)
 			if err != nil {
-				fmt.Printf("Sending via websocket went wrong")
+				fmt.Printf("Sending Packet went wrong")
 			}
 
+			m.chat.textarea.Reset()
+			m.chat.viewport.GotoBottom()
 			return m, nil
 		default:
 			// Send all other keypresses to the textarea.
@@ -132,11 +84,12 @@ func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.chat.textarea, cmd = m.chat.textarea.Update(msg)
 			return m, cmd
 		}
-	case serverMsg:
-		m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render(msg.UserID+":")+msg.Context)
+	case shared.PostMsg:
+		m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render(msg.UserId+":")+msg.Msg)
 		m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
 		m.chat.textarea.Reset()
 		m.chat.viewport.GotoBottom()
+
 		return m, nil
 
 	case cursor.BlinkMsg:

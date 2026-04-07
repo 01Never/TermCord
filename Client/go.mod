@@ -6,8 +6,11 @@ require (
 	charm.land/bubbles/v2 v2.0.0
 	charm.land/bubbletea/v2 v2.0.2
 	charm.land/lipgloss/v2 v2.0.2
+	example/TermCord/shared v0.0.0
 	github.com/coder/websocket v1.8.14
 )
+
+replace example/TermCord/shared => ../shared
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
