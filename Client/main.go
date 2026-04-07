@@ -22,6 +22,7 @@ type model struct {
 }
 
 var user string = fmt.Sprintf("USER_%03d", rand.Intn(1000))
+var color int = rand.Intn(256)
 
 func main() {
 

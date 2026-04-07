@@ -67,7 +67,7 @@ func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			msg := shared.PostMsg{UserId: user, Msg: string(m.chat.textarea.Value())}
+			msg := shared.PostMsg{UserId: user, Msg: string(m.chat.textarea.Value()), Color: color}
 			bytes, err := json.Marshal(msg)
 			if err != nil {
 				fmt.Printf("Failed to Marshal PostMsg")
@@ -89,7 +89,12 @@ func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case shared.PostMsg:
-		m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render(msg.UserId+":")+msg.Msg)
+		if msg.UserId == user {
+			m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render(msg.UserId+":")+msg.Msg)
+		} else {
+			m.chat.messages = append(m.chat.messages, lipgloss.NewStyle().Foreground(lipgloss.Color(fmt.Sprintf("%d", msg.Color))).Render(msg.UserId+":")+msg.Msg)
+		}
+
 		m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
 		m.chat.textarea.Reset()
 		m.chat.viewport.GotoBottom()

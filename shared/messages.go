@@ -30,12 +30,8 @@ type UserLeft struct {
 	UserID string `json:"userID"`
 }
 
-type MsgPosted struct {
-	UserId string `json:"userID"`
-	Msg    string `json:"msg"`
-}
-
 type PostMsg struct {
 	UserId string `json:"userID"`
 	Msg    string `json:"msg"`
+	Color  int    `json:"color"`
 }
