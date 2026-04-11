@@ -191,6 +191,11 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Add user to room state and broadcast join
+	cs.subscribersMu.Lock()
+	cs.roomState.OnlineUsers = append(cs.roomState.OnlineUsers, s.userID)
+	cs.subscribersMu.Unlock()
+
 	// Send current room state to joining client
 	rsBytes, err := json.Marshal(cs.roomState)
 	if err != nil {
@@ -202,11 +207,6 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 		fmt.Printf("error marshaling packet")
 	}
 	writeTimeout(ctx, time.Second*5, c, rsMsg)
-
-	// Add user to room state and broadcast join
-	cs.subscribersMu.Lock()
-	cs.roomState.OnlineUsers = append(cs.roomState.OnlineUsers, s.userID)
-	cs.subscribersMu.Unlock()
 
 	userJoin := shared.UserJoined{UserID: s.userID}
 	bytes, err := json.Marshal(userJoin)

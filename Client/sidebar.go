@@ -3,7 +3,6 @@ package main
 import (
 	"strings"
 
-	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
@@ -19,7 +18,7 @@ var activeChannelStyle = lipgloss.NewStyle().
 	Padding(0, 1)
 
 func (m model) Init() tea.Cmd {
-	return textarea.Blink
+	return nil
 }
 
 // Styling

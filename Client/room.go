@@ -16,12 +16,10 @@ import (
 	"github.com/coder/websocket/wsjson"
 )
 
-func initialModel(conn *websocket.Conn, ctx context.Context) model {
+func initialModel() model {
 	return model{
-		chat:    init_chat(),
-		session: "room",
-		conn:    conn,
-		ctx:     ctx}
+		session: "entry",
+	}
 }
 
 // TODO MC periodic stuff for server. Maybe this should go in function that starts

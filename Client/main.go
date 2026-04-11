@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"example/TermCord/shared"
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
 
@@ -14,30 +13,23 @@ import (
 )
 
 type model struct {
-	chat    chat_model
-	session string
-	users   []string
-	conn    *websocket.Conn
-	ctx     context.Context
+	chat       chat_model
+	session    string
+	users      []string
+	conn       *websocket.Conn
+	ctx        context.Context
+	entryInput string
 }
 
 var user string = fmt.Sprintf("USER_%03d", rand.Intn(1000))
 var color int = rand.Intn(256)
+var program *tea.Program
 
 func main() {
+	p := tea.NewProgram(initialModel())
+	program = p
 
-	ctx := context.Background()
-	//todo having the user name in the url not secure
-	conn, _, err := websocket.Dial(ctx, "ws://localhost:8080/subscribe?username="+user, nil)
-	if err != nil {
-		log.Fatalf("Oof: failed to connect to server: %v", err)
-	}
-
-	p := tea.NewProgram(initialModel(conn, ctx))
-	go listenForMessages(p, conn, ctx)
-	sendServer(conn, ctx)
-
-	_, err = p.Run()
+	_, err := p.Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Oof: %v\n", err)
 	}
@@ -45,6 +37,8 @@ func main() {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.session {
+	case "entry":
+		return m.entryUpdate(msg)
 	case "room":
 		return m.roomUpdate(msg)
 	}
@@ -52,7 +46,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() tea.View {
-	return m.renderChatRoom()
+	switch m.session {
+	case "entry":
+		return m.renderEntry()
+	case "room":
+		return m.renderChatRoom()
+	}
+	return m.renderEntry()
 }
 
 func listenForMessages(p *tea.Program, conn *websocket.Conn, ctx context.Context) {
