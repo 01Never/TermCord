@@ -48,7 +48,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case "room":
 		return m.roomUpdate(msg)
 	}
-
 	return m, nil
 }
 
@@ -77,7 +76,6 @@ func listenForMessages(p *tea.Program, conn *websocket.Conn, ctx context.Context
 			if err != nil {
 				fmt.Printf("Failed to unmarshal MsgPosted")
 			}
-
 			p.Send(msg)
 
 		case "UserJoined":
@@ -86,7 +84,6 @@ func listenForMessages(p *tea.Program, conn *websocket.Conn, ctx context.Context
 			if err != nil {
 				fmt.Printf("Failed to unmarshal UserJoined")
 			}
-
 			p.Send(msg)
 
 		case "UserLeft":
@@ -95,7 +92,6 @@ func listenForMessages(p *tea.Program, conn *websocket.Conn, ctx context.Context
 			if err != nil {
 				fmt.Printf("Failed to unmarshal UserLeft")
 			}
-
 			p.Send(msg)
 		}
 	}

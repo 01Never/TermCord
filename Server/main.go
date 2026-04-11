@@ -71,8 +71,13 @@ func newChatServer() *chatServer {
 // subscriber represents a subscriber.
 // Messages are sent on the msgs channel and if the client
 // cannot keep up with the messages, closeSlow is called.
+type message struct {
+	data      []byte
+	publisher string
+}
+
 type subscriber struct {
-	msgs      chan []byte
+	msgs      chan message
 	heartbeat chan []byte
 	userID    string
 	closeSlow func()
@@ -115,7 +120,7 @@ func (cs *chatServer) publishHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cs.logf("message: %s", msg)
-	cs.publish(msg)
+	cs.publish(msg, "")
 
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -134,10 +139,10 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 	var closed bool
 	var userID string
 
-	userID = r.Header.Get("username")
+	userID = r.URL.Query().Get("username")
 
 	s := &subscriber{
-		msgs:   make(chan []byte, cs.subscriberMessageBuffer),
+		msgs:   make(chan message, cs.subscriberMessageBuffer),
 		userID: userID,
 		closeSlow: func() {
 			mu.Lock()
@@ -150,6 +155,21 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 	}
 	cs.addSubscriber(s)
 	defer cs.deleteSubscriber(s)
+	defer func() {
+		userLeft := shared.UserLeft{UserID: s.userID}
+		bytes, err := json.Marshal(userLeft)
+		if err != nil {
+			fmt.Printf("error marshaling userLeft")
+			return
+		}
+		packet := shared.Packet{Type: "UserLeft", Data: bytes}
+		msg, err := json.Marshal(packet)
+		if err != nil {
+			fmt.Printf("error marshaling packet")
+			return
+		}
+		cs.publish(msg, s.userID)
+	}()
 
 	c2, err := websocket.Accept(w, r, nil)
 	if err != nil {
@@ -167,6 +187,20 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	//need to move to a onJoin() function
+	userJoin := shared.UserJoined{UserID: s.userID}
+	bytes, err := json.Marshal(userJoin)
+	if err != nil {
+		fmt.Printf("error marshaling userJoin")
+	}
+	packet := shared.Packet{Type: "UserJoined", Data: bytes}
+	var msg []byte
+	msg, err = json.Marshal(packet)
+	if err != nil {
+		fmt.Printf("error marshaling packet")
+	}
+	cs.publish(msg, s.userID)
+
 	// Read loop in a separate goroutine
 	go func() {
 		defer cancel()
@@ -181,7 +215,7 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 
 			switch packet.Type {
 			case "PostMsg":
-				cs.publish(msg)
+				cs.publish(msg, s.userID)
 				var chat shared.PostMsg
 				json.Unmarshal(packet.Data, &chat)
 				log.Printf("msg: %s", chat)
@@ -199,7 +233,10 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 	for {
 		select {
 		case msg := <-s.msgs:
-			err := writeTimeout(ctx, time.Second*5, c, msg)
+			if msg.publisher == s.userID {
+				continue
+			}
+			err := writeTimeout(ctx, time.Second*5, c, msg.data)
 			if err != nil {
 				return err
 			}
@@ -213,23 +250,12 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	// for {
-	// 	select {
-	// 	case msg := <-s.msgs:
-	// 		err := writeTimeout(ctx, time.Second*5, c, msg)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	case <-ctx.Done():
-	// 		return ctx.Err()
-	// 	}
-	// }
 }
 
 // publish publishes the msg to all subscribers.
 // It never blocks and so messages to slow subscribers
 // are dropped.
-func (cs *chatServer) publish(msg []byte) {
+func (cs *chatServer) publish(msg []byte, publisher string) {
 	cs.subscribersMu.Lock()
 	defer cs.subscribersMu.Unlock()
 
@@ -237,7 +263,7 @@ func (cs *chatServer) publish(msg []byte) {
 
 	for s := range cs.subscribers {
 		select {
-		case s.msgs <- msg:
+		case s.msgs <- message{data: msg, publisher: publisher}:
 		default:
 			go s.closeSlow()
 		}
@@ -249,12 +275,6 @@ func (cs *chatServer) addSubscriber(s *subscriber) {
 	cs.subscribersMu.Lock()
 	cs.subscribers[s] = struct{}{}
 	cs.subscribersMu.Unlock()
-
-	//todo maybe this should also have a mutex?
-	//users = append(users, s.userID)
-
-	//todo information to return to clients once we are conneceted
-
 }
 
 // deleteSubscriber deletes the given subscriber.

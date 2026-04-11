@@ -79,8 +79,11 @@ func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 				fmt.Printf("Sending Packet went wrong")
 			}
 
+			m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render(user+":")+m.chat.textarea.Value())
+			m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
 			m.chat.textarea.Reset()
 			m.chat.viewport.GotoBottom()
+
 			return m, nil
 		default:
 			// Send all other keypresses to the textarea.
@@ -89,16 +92,26 @@ func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case shared.PostMsg:
-		if msg.UserId == user {
-			m.chat.messages = append(m.chat.messages, m.chat.senderStyle.Render(msg.UserId+":")+msg.Msg)
-		} else {
-			m.chat.messages = append(m.chat.messages, lipgloss.NewStyle().Foreground(lipgloss.Color(fmt.Sprintf("%d", msg.Color))).Render(msg.UserId+":")+msg.Msg)
-		}
-
+		m.chat.messages = append(m.chat.messages, lipgloss.NewStyle().Foreground(lipgloss.Color(fmt.Sprintf("%d", msg.Color))).Render(msg.UserId+":")+msg.Msg)
 		m.chat.viewport.SetContent(lipgloss.NewStyle().Width(m.chat.viewport.Width()).Render(strings.Join(m.chat.messages, "\n")))
 		m.chat.textarea.Reset()
 		m.chat.viewport.GotoBottom()
 
+		return m, nil
+
+	case shared.UserJoined:
+		//something
+		onlineUser := SidebarItem{Name: msg.UserID, Category: "Development"}
+		m.chat.onlineUsers = append(m.chat.onlineUsers, onlineUser)
+		return m, nil
+
+	case shared.UserLeft:
+		for i, u := range m.chat.onlineUsers {
+			if u.Name == msg.UserID {
+				m.chat.onlineUsers = append(m.chat.onlineUsers[:i], m.chat.onlineUsers[i+1:]...)
+				break
+			}
+		}
 		return m, nil
 
 	case cursor.BlinkMsg:
