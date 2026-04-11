@@ -50,7 +50,7 @@ func init_chat() chat_model {
 		viewport:    vp,
 		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(fmt.Sprintf("%d", color))),
 		onlineUsers: []SidebarItem{
-			{Name: user, Category: "Development"},
+			{Name: user, Color: color},
 		},
 		err: nil,
 	}

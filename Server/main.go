@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strconv"
 	"net/http"
 	"sync"
 	"time"
@@ -75,6 +76,7 @@ type subscriber struct {
 	msgs      chan message
 	heartbeat chan []byte
 	userID    string
+	color     int
 	closeSlow func()
 }
 
@@ -135,10 +137,12 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 	var userID string
 
 	userID = r.URL.Query().Get("username")
+	userColor, _ := strconv.Atoi(r.URL.Query().Get("color"))
 
 	s := &subscriber{
 		msgs:   make(chan message, cs.subscriberMessageBuffer),
 		userID: userID,
+		color:  userColor,
 		closeSlow: func() {
 			mu.Lock()
 			defer mu.Unlock()
@@ -153,7 +157,7 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 	defer func() {
 		cs.subscribersMu.Lock()
 		for i, u := range cs.roomState.OnlineUsers {
-			if u == s.userID {
+			if u.UserID == s.userID {
 				cs.roomState.OnlineUsers = append(cs.roomState.OnlineUsers[:i], cs.roomState.OnlineUsers[i+1:]...)
 				break
 			}
@@ -193,7 +197,7 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 
 	// Add user to room state and broadcast join
 	cs.subscribersMu.Lock()
-	cs.roomState.OnlineUsers = append(cs.roomState.OnlineUsers, s.userID)
+	cs.roomState.OnlineUsers = append(cs.roomState.OnlineUsers, shared.OnlineUser{UserID: s.userID, Color: s.color})
 	cs.subscribersMu.Unlock()
 
 	// Send current room state to joining client
@@ -208,7 +212,7 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 	}
 	writeTimeout(ctx, time.Second*5, c, rsMsg)
 
-	userJoin := shared.UserJoined{UserID: s.userID}
+	userJoin := shared.UserJoined{UserID: s.userID, Color: s.color}
 	bytes, err := json.Marshal(userJoin)
 	if err != nil {
 		fmt.Printf("error marshaling userJoin")

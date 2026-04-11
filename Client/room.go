@@ -99,14 +99,14 @@ func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case shared.UserJoined:
 		//something
-		onlineUser := SidebarItem{Name: msg.UserID, Category: "Development"}
+		onlineUser := SidebarItem{Name: msg.UserID, Color: msg.Color}
 		m.chat.onlineUsers = append(m.chat.onlineUsers, onlineUser)
 		return m, nil
 
 	case shared.RoomState:
 		m.chat.onlineUsers = nil
-		for _, userID := range msg.OnlineUsers {
-			m.chat.onlineUsers = append(m.chat.onlineUsers, SidebarItem{Name: userID, Category: "Development"})
+		for _, u := range msg.OnlineUsers {
+			m.chat.onlineUsers = append(m.chat.onlineUsers, SidebarItem{Name: u.UserID, Color: u.Color})
 		}
 		return m, nil
 

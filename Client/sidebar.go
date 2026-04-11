@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -8,8 +9,8 @@ import (
 )
 
 type SidebarItem struct {
-	Name     string
-	Category string
+	Name  string
+	Color int
 }
 
 var activeChannelStyle = lipgloss.NewStyle().
@@ -49,8 +50,10 @@ func (m model) renderSidebar() string {
 		// 	b.WriteString(categoryStyle.Width(sidebarW).Render(ch.Category) + "\n")
 		// 	usedLines++
 		// }
-		label := ch.Name
-		b.WriteString(activeChannelStyle.Width(sidebarW).Render(label) + "\n")
+		nameStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(fmt.Sprintf("%d", ch.Color))).
+			Padding(0, 1)
+		b.WriteString(nameStyle.Width(sidebarW).Render(ch.Name) + "\n")
 		usedLines++
 	}
 

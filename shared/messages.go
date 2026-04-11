@@ -8,8 +8,13 @@ type Packet struct {
 	Data   json.RawMessage `json:"data"`
 }
 
+type OnlineUser struct {
+	UserID string `json:"userID"`
+	Color  int    `json:"color"`
+}
+
 type RoomState struct {
-	OnlineUsers []string `json:"onlineUsers"`
+	OnlineUsers []OnlineUser `json:"onlineUsers"`
 }
 
 type HeartBeat struct {
@@ -21,6 +26,7 @@ type HeartBeat struct {
 // --------------------------------------
 type UserJoined struct {
 	UserID string `json:"userID"`
+	Color  int    `json:"color"`
 }
 
 type UserLeft struct {

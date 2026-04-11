@@ -55,7 +55,7 @@ func (m model) entryUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func connectToServer() tea.Msg {
 	ctx := context.Background()
-	conn, _, err := websocket.Dial(ctx, "ws://localhost:8080/subscribe?username="+user, nil)
+	conn, _, err := websocket.Dial(ctx, fmt.Sprintf("ws://localhost:8080/subscribe?username=%s&color=%d", user, color), nil)
 	if err != nil {
 		return tea.Quit()
 	}
