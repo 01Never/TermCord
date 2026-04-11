@@ -105,6 +105,13 @@ func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.chat.onlineUsers = append(m.chat.onlineUsers, onlineUser)
 		return m, nil
 
+	case shared.RoomState:
+		m.chat.onlineUsers = nil
+		for _, userID := range msg.OnlineUsers {
+			m.chat.onlineUsers = append(m.chat.onlineUsers, SidebarItem{Name: userID, Category: "Development"})
+		}
+		return m, nil
+
 	case shared.UserLeft:
 		for i, u := range m.chat.onlineUsers {
 			if u.Name == msg.UserID {

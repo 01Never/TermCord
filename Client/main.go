@@ -93,6 +93,14 @@ func listenForMessages(p *tea.Program, conn *websocket.Conn, ctx context.Context
 				fmt.Printf("Failed to unmarshal UserLeft")
 			}
 			p.Send(msg)
+
+		case "RoomState":
+			var msg shared.RoomState
+			err = json.Unmarshal(packet.Data, &msg)
+			if err != nil {
+				fmt.Printf("Failed to unmarshal RoomState")
+			}
+			p.Send(msg)
 		}
 	}
 }

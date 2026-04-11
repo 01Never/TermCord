@@ -18,12 +18,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-var users []string
-
-// type usersOnline struct {
-// 	Users users `json:"online_users"`
-// }
-
 func main() {
 	termcord := newChatServer()
 	http.ListenAndServe(":8080", termcord)
@@ -52,6 +46,7 @@ type chatServer struct {
 
 	subscribersMu sync.Mutex
 	subscribers   map[*subscriber]struct{} // todo need to understand maps better
+	roomState     shared.RoomState
 }
 
 func newChatServer() *chatServer {
@@ -156,6 +151,15 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 	cs.addSubscriber(s)
 	defer cs.deleteSubscriber(s)
 	defer func() {
+		cs.subscribersMu.Lock()
+		for i, u := range cs.roomState.OnlineUsers {
+			if u == s.userID {
+				cs.roomState.OnlineUsers = append(cs.roomState.OnlineUsers[:i], cs.roomState.OnlineUsers[i+1:]...)
+				break
+			}
+		}
+		cs.subscribersMu.Unlock()
+
 		userLeft := shared.UserLeft{UserID: s.userID}
 		bytes, err := json.Marshal(userLeft)
 		if err != nil {
@@ -187,7 +191,23 @@ func (cs *chatServer) subscribe(w http.ResponseWriter, r *http.Request) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	//need to move to a onJoin() function
+	// Send current room state to joining client
+	rsBytes, err := json.Marshal(cs.roomState)
+	if err != nil {
+		fmt.Printf("error marshaling roomState")
+	}
+	rsPacket := shared.Packet{Type: "RoomState", Data: rsBytes}
+	rsMsg, err := json.Marshal(rsPacket)
+	if err != nil {
+		fmt.Printf("error marshaling packet")
+	}
+	writeTimeout(ctx, time.Second*5, c, rsMsg)
+
+	// Add user to room state and broadcast join
+	cs.subscribersMu.Lock()
+	cs.roomState.OnlineUsers = append(cs.roomState.OnlineUsers, s.userID)
+	cs.subscribersMu.Unlock()
+
 	userJoin := shared.UserJoined{UserID: s.userID}
 	bytes, err := json.Marshal(userJoin)
 	if err != nil {

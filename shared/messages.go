@@ -8,10 +8,7 @@ type Packet struct {
 	Data   json.RawMessage `json:"data"`
 }
 
-type ServerMsg struct { //todo this should be "chatMsg"
-	UserID      string   `json:"userId"`
-	Context     string   `json:"content"`
-	Timestamp   int64    `json:"timeStamp"`
+type RoomState struct {
 	OnlineUsers []string `json:"onlineUsers"`
 }
 
