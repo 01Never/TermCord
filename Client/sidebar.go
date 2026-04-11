@@ -18,8 +18,8 @@ var activeChannelStyle = lipgloss.NewStyle().
 	Bold(true).
 	Padding(0, 1)
 
-func (m model) Init() tea.Cmd {
-	return nil
+func (m model) Init() tea.Cmd { //todo this should not be here
+	return m.spinner.Tick
 }
 
 // Styling

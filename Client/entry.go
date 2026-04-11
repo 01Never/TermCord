@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
-	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/coder/websocket"
@@ -27,7 +27,9 @@ func (m model) entryUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			user = name
-			return m, connectToServer
+			m.session = "connecting"
+			go connectToServer(program)
+			return m, m.spinner.Tick
 		case "backspace":
 			if len(m.entryInput) > 0 {
 				m.entryInput = m.entryInput[:len(m.entryInput)-1]
@@ -40,6 +42,13 @@ func (m model) entryUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+	}
+
+	return m, nil
+}
+
+func (m model) connectionUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
 	case connectedMsg:
 		m.conn = msg.conn
 		m.ctx = msg.ctx
@@ -47,19 +56,25 @@ func (m model) entryUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.session = "room"
 		go listenForMessages(program, m.conn, m.ctx)
 		sendServer(m.conn, m.ctx)
-		return m, textarea.Blink
+		return m, m.spinner.Tick
 	}
 
-	return m, nil
+	var cmd tea.Cmd
+	m.spinner, cmd = m.spinner.Update(msg)
+	return m, cmd
 }
 
-func connectToServer() tea.Msg {
-	ctx := context.Background()
-	conn, _, err := websocket.Dial(ctx, fmt.Sprintf("ws://localhost:8080/subscribe?username=%s&color=%d", user, color), nil)
-	if err != nil {
-		return tea.Quit()
+func connectToServer(p *tea.Program) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	for {
+		conn, _, err := websocket.Dial(ctx, fmt.Sprintf("ws://localhost:8080/subscribe?username=%s&color=%d", user, color), nil)
+		if err == nil {
+			p.Send(connectedMsg{conn: conn, ctx: ctx})
+		}
+		// return tea.Quit()
 	}
-	return connectedMsg{conn: conn, ctx: ctx}
 }
 
 func (m model) renderEntry() tea.View {

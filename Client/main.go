@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"time"
 
+	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"github.com/coder/websocket"
 )
@@ -19,11 +21,45 @@ type model struct {
 	conn       *websocket.Conn
 	ctx        context.Context
 	entryInput string
+	spinner    spinner.Model
 }
 
 var user string = fmt.Sprintf("USER_%03d", rand.Intn(1000))
 var color int = rand.Intn(256)
 var program *tea.Program
+
+var connectingVerbs = []string{
+	"Pondering",
+	"Cogitating",
+	"Ruminating",
+	"Musing",
+	"Contemplating",
+	"Deliberating",
+	"Brewing",
+	"Conjuring",
+	"Finagling",
+	"Tinkering",
+	"Hatching",
+	"Scheming",
+	"Percolating",
+	"Noodling",
+	"Simmering",
+	"Marinating",
+	"Plotting",
+	"Whisking",
+	"Kindling",
+	"Summoning",
+	"Wrangling",
+	"Schmoozing",
+	"Bamboozling",
+	"Hornswoggling",
+	"Skedaddling",
+	"Galumphing",
+	"Hobnobbing",
+	"Flummoxing",
+	"Discombobulating",
+	"Vibing",
+}
 
 func main() {
 	p := tea.NewProgram(initialModel())
@@ -36,22 +72,38 @@ func main() {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "ctrl+c", "esc":
+			return m, tea.Quit
+		}
+	}
+
 	switch m.session {
 	case "entry":
 		return m.entryUpdate(msg)
 	case "room":
 		return m.roomUpdate(msg)
+	case "connecting":
+		return m.connectionUpdate(msg)
 	}
 	return m, nil
 }
 
 func (m model) View() tea.View {
+
 	switch m.session {
 	case "entry":
 		return m.renderEntry()
 	case "room":
 		return m.renderChatRoom()
+	case "connecting":
+		verb := connectingVerbs[int(time.Now().Unix()/2)%len(connectingVerbs)]
+		str := fmt.Sprintf("\n\n   %s %s...\n\n", m.spinner.View(), verb)
+		return tea.NewView(str)
 	}
+
 	return m.renderEntry()
 }
 

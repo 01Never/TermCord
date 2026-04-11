@@ -10,6 +10,7 @@ import (
 	"example/TermCord/shared"
 
 	"charm.land/bubbles/v2/cursor"
+	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/coder/websocket"
@@ -17,8 +18,12 @@ import (
 )
 
 func initialModel() model {
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	return model{
 		session: "entry",
+		spinner: s,
 	}
 }
 
@@ -57,9 +62,6 @@ func (m model) roomUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.chat.viewport.GotoBottom()
 	case tea.KeyPressMsg:
 		switch msg.String() {
-		case "ctrl+c", "esc":
-			fmt.Println(m.chat.textarea.Value())
-			return m, tea.Quit
 		case "enter":
 			if string(m.chat.textarea.Value()) == "" {
 				return m, nil
